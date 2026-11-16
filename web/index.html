@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#111816" />
+    <title>ESP32 声音设备控制台</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <svg class="icon-sprite" aria-hidden="true">
+      <symbol id="icon-radio" viewBox="0 0 24 24"><path d="M4.9 19.1a10 10 0 0 1 0-14.2M8.5 15.5a5 5 0 0 1 0-7M19.1 4.9a10 10 0 0 1 0 14.2M15.5 8.5a5 5 0 0 1 0 7M12 12h.01"/></symbol>
+      <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="icon-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+      <symbol id="icon-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66L20 8.68M20 4v4.68h-4.68"/></symbol>
+      <symbol id="icon-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v5M14 11v5"/></symbol>
+      <symbol id="icon-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
+      <symbol id="icon-x" viewBox="0 0 24 24"><path d="m18 6-12 12M6 6l12 12"/></symbol>
+      <symbol id="icon-device" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 18h6M9 6h6"/></symbol>
+    </svg>
+
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand-mark"><svg><use href="#icon-radio" /></svg></div>
+        <div>
+          <p class="eyebrow">ESP32 SOUND NETWORK</p>
+          <h1>设备控制台</h1>
+        </div>
+        <div class="api-state" id="apiState"><span></span><strong>正在连接服务</strong></div>
+      </header>
+
+      <main class="workspace">
+        <aside class="device-panel">
+          <div class="section-heading">
+            <div><p class="eyebrow">DEVICES</p><h2>录音设备</h2></div>
+            <button class="icon-button" id="refreshButton" type="button" aria-label="刷新设备列表"><svg><use href="#icon-refresh" /></svg></button>
+          </div>
+
+          <label class="search-box">
+            <svg><use href="#icon-search" /></svg>
+            <input id="searchInput" type="search" placeholder="按名称、ID 或位置查询" autocomplete="off" />
+          </label>
+
+          <div class="device-count"><span id="deviceCount">0 台设备</span><span>选择设备后进行控制</span></div>
+          <div class="device-list" id="deviceList" aria-live="polite"></div>
+          <button class="add-button" id="openAddButton" type="button"><svg><use href="#icon-plus" /></svg>添加设备</button>
+        </aside>
+
+        <section class="control-panel">
+          <div id="emptySelection" class="empty-selection">
+            <div class="signal-orbit"><svg><use href="#icon-device" /></svg></div>
+            <p class="eyebrow">NO DEVICE SELECTED</p>
+            <h2>先从设备目录中选择一台设备</h2>
+            <p>选择后可查看设备信息，并发送录音启停等控制消息。</p>
+          </div>
+
+          <div id="deviceWorkspace" class="device-workspace" hidden>
+            <div class="selected-heading">
+              <div>
+                <p class="eyebrow">SELECTED DEVICE</p>
+                <h2 id="selectedName">—</h2>
+                <p class="mono" id="selectedId">—</p>
+              </div>
+              <button class="danger-button" id="deleteButton" type="button"><svg><use href="#icon-trash" /></svg>删除设备</button>
+            </div>
+
+            <dl class="device-facts">
+              <div><dt>部署位置</dt><dd id="selectedLocation">—</dd></div>
+              <div><dt>设备类型</dt><dd id="selectedType">—</dd></div>
+              <div><dt>连接状态</dt><dd id="selectedStatus"><span class="status-dot"></span>查询中</dd></div>
+            </dl>
+
+            <form id="controlForm" class="control-form">
+              <div class="section-heading compact">
+                <div><p class="eyebrow">COMMAND</p><h3>发送控制消息</h3></div>
+              </div>
+              <div class="command-row" role="radiogroup" aria-label="控制命令">
+                <label><input type="radio" name="command" value="start" checked /><span>开始录音</span></label>
+                <label><input type="radio" name="command" value="stop" /><span>停止录音</span></label>
+                <label><input type="radio" name="command" value="status" /><span>查询状态</span></label>
+                <label><input type="radio" name="command" value="set" /><span>设置参数</span></label>
+              </div>
+
+              <div id="startParameters" class="parameter-grid">
+                <label class="wide-field">录音上传地址 <span>WebSocket URL</span><input name="recorderUrl" type="url" required /></label>
+                <label>分片时长 <span>ms</span><input name="segment" type="number" value="200" min="1" max="60000" inputmode="numeric" /></label>
+                <label>采样率 <span>Hz</span><input name="samplerate" type="number" value="16000" min="1" inputmode="numeric" /></label>
+                <label>位深 <span>bit</span><select name="bitrate"><option value="16">16</option><option value="24">24</option><option value="32">32</option></select></label>
+                <label>声道 <span>channel</span><select name="channel"><option value="1">单声道</option><option value="2">双声道</option></select></label>
+              </div>
+
+              <label id="setParametersField" class="custom-command" hidden>参数列表 <span>JSON 数组，每项包含 para 和 value</span><textarea name="parameters" rows="5" placeholder='[{"para": "LED_BRIGHTNESS", "value": 50}]'></textarea></label>
+              <button class="send-button" id="sendButton" type="submit"><span>发送到设备</span><svg><use href="#icon-send" /></svg></button>
+            </form>
+
+            <section class="response-console" aria-labelledby="responseTitle">
+              <div><p class="eyebrow">DEVICE RESPONSE</p><h3 id="responseTitle">设备响应</h3></div>
+              <pre id="responseOutput">尚未发送控制消息</pre>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="addDialog">
+      <form id="addForm" method="dialog">
+        <div class="dialog-heading">
+          <div><p class="eyebrow">NEW DEVICE</p><h2>添加设备</h2></div>
+          <button class="icon-button" id="closeAddButton" type="button" aria-label="关闭"><svg><use href="#icon-x" /></svg></button>
+        </div>
+        <label>客户端 ID <strong>*</strong><input name="id" required minlength="1" placeholder="例如 2884856cbfa4" /></label>
+        <label>设备名称 <strong>*</strong><input name="name" required minlength="1" placeholder="例如 meeting-room-411" /></label>
+        <label>部署位置<input name="location" placeholder="例如 4 楼 411 会议室" /></label>
+        <label>设备类型<input name="type" placeholder="例如 XVF3800" /></label>
+        <p class="form-error" id="addFormError" role="alert"></p>
+        <button class="send-button" type="submit"><span>保存设备</span><svg><use href="#icon-plus" /></svg></button>
+      </form>
+    </dialog>
+
+    <div class="toast-region" id="toastRegion" aria-live="polite"></div>
+    <script src="./app.js" defer></script>
+  </body>
+</html>
