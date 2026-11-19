@@ -1,5 +1,25 @@
 # ESP32 Sound WebSocket Server
 
+## Docker 部署
+
+镜像使用 Python 3.12，通过 uv 按 `uv.lock` 安装运行依赖。
+在项目根目录构建并启动服务：
+
+```sh
+docker build -t esp32-sound-websocket-server .
+docker run -d --name esp32-sound-websocket-server --restart unless-stopped -p 12345:12345 -v esp32-recordings:/app/recordings esp32-sound-websocket-server
+```
+
+客户端连接 `ws://<服务器IP>:12345/v1/recorder?segment=200&id=<会议号>`。
+录音保存在 `esp32-recordings` Docker 数据卷中，按会议号分目录存储，
+删除或重建容器后仍会保留。可通过以下命令查看服务日志：
+
+```sh
+docker logs -f esp32-sound-websocket-server
+```
+
+该镜像运行录音 WebSocket 服务；设备控制静态页面的部署方式见下文。
+
 ## 设备控制页面
 
 静态控制页面位于 `web/`，支持：
